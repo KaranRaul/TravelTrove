@@ -5,6 +5,8 @@ const authRoutes = require("./routes/auth.routes");
 const destinationRoutes = require("./routes/destination.routes");
 const itineraryRoutes = require("./routes/itinerary.routes");
 const favoriteRoutes = require("./routes/favorite.routes");
+const chatRoutes = require("./routes/chat.routes");
+
 
 const errorMiddleware = require("./middlewares/error.middleware");
 
@@ -22,6 +24,7 @@ app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/destination-guides", destinationRoutes);
 app.use("/api/v1/trip-itineraries", itineraryRoutes);
 app.use("/api/v1/favorites", favoriteRoutes);
+app.use("/api/v1/chat", chatRoutes);
 
 app.use(errorMiddleware);
 
