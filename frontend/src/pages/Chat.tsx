@@ -1,62 +1,78 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useContext } from "react";
 import { useLocation } from "react-router-dom";
 import Layout from "../components/common/Layout";
 import {
-    getUsers,
-    getOrCreateConversation,
+    getConversations,
     getMessages,
     sendMessage,
 } from "../api/chat.api";
-import { ChatUser, ChatMessage } from "../types/chat";
+import { ChatUser, ChatMessage, Conversation } from "../types/chat";
+import { AuthContext } from "../context/AuthContext";
+import { jwtDecode } from "jwt-decode";
+
+interface DecodedToken {
+    id: string;
+    email: string;
+    iat: number;
+    exp: number;
+}
 
 const Chat = () => {
+    const { token } = useContext(AuthContext);
+    const currentUser: DecodedToken | null = token ? jwtDecode(token) : null;
     const location = useLocation();
-    const [users, setUsers] = useState<ChatUser[]>([]);
+    const [conversations, setConversations] = useState<Conversation[]>([]);
     const [search, setSearch] = useState("");
-    const [selectedUser, setSelectedUser] = useState<ChatUser | null>(null);
-    const [conversationId, setConversationId] = useState<string | null>(null);
+    const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [text, setText] = useState("");
 
+    const selectedConversation = conversations.find(c => c._id === selectedConversationId) || null;
+
     // Handle initial state from navigation
     useEffect(() => {
-        if (location.state?.selectedUser && location.state?.conversationId) {
-            setSelectedUser(location.state.selectedUser);
-            setConversationId(location.state.conversationId);
+        if (location.state?.conversationId) {
+            setSelectedConversationId(location.state.conversationId);
         }
     }, [location.state]);
 
-    // Load users
+    // Load conversations
     useEffect(() => {
-        getUsers().then((res) => setUsers(res.data.users));
-    }, []);
+        getConversations().then((res) => {
+            setConversations(res.data.conversations);
+            if (location.state?.conversationId) {
+                setSelectedConversationId(location.state.conversationId);
+            }
+        });
+    }, [location.state]);
 
     // Poll messages
     useEffect(() => {
-        if (!conversationId) return;
+        if (!selectedConversationId) return;
 
         const load = async () => {
-            const res = await getMessages(conversationId);
+            const res = await getMessages(selectedConversationId);
             setMessages(res.data.messages);
         };
 
         load();
         const interval = setInterval(load, 5000);
         return () => clearInterval(interval);
-    }, [conversationId]);
+    }, [selectedConversationId]);
 
-    const selectUser = async (user: ChatUser) => {
-        setSelectedUser(user);
-        const res = await getOrCreateConversation(user._id);
-        setConversationId(res.data.conversationId);
+    const selectConversation = (c: Conversation) => {
+        setSelectedConversationId(c._id);
     };
 
     const handleSend = async () => {
-        if (!text.trim() || !conversationId) return;
-        await sendMessage(conversationId, text);
+        if (!text.trim() || !selectedConversationId) return;
+        await sendMessage(selectedConversationId, text);
         setText("");
-        const res = await getMessages(conversationId);
+        const res = await getMessages(selectedConversationId);
         setMessages(res.data.messages);
+
+        // Refresh conversations to get the latest message on top
+        getConversations().then((res) => setConversations(res.data.conversations));
     };
 
     const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -66,9 +82,14 @@ const Chat = () => {
         }
     };
 
-    const filteredUsers = users.filter((u) =>
-        u.email.toLowerCase().includes(search.toLowerCase())
-    );
+    const getOtherParticipant = (c: Conversation) => {
+        return c.participants.find((p: ChatUser) => p._id !== currentUser?.id);
+    };
+
+    const filteredConversations = conversations.filter((c) => {
+        const otherUser = getOtherParticipant(c);
+        return otherUser?.email.toLowerCase().includes(search.toLowerCase());
+    });
 
     return (
         <Layout>
@@ -104,41 +125,48 @@ const Chat = () => {
                             </div>
                         </div>
 
-                        {/* User List */}
+                        {/* Conversation List */}
                         <div className="flex-1 overflow-y-auto">
-                            {filteredUsers.length === 0 ? (
+                            {filteredConversations.length === 0 ? (
                                 <div className="flex items-center justify-center h-32 text-sm text-gray-500">
-                                    No users found
+                                    No conversations found
                                 </div>
                             ) : (
-                                filteredUsers.map((user) => (
-                                    <div
-                                        key={user._id}
-                                        onClick={() => selectUser(user)}
-                                        className={`px-4 py-3 cursor-pointer border-b border-gray-100 transition-colors ${selectedUser?._id === user._id
-                                                ? "bg-gray-100"
-                                                : "hover:bg-gray-50"
-                                            }`}
-                                    >
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center text-gray-700 font-medium text-sm">
-                                                {user.email.charAt(0).toUpperCase()}
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-sm font-medium text-gray-900 truncate">
-                                                    {user.email}
-                                                </p>
+                                filteredConversations.map((c) => {
+                                    const otherUser = getOtherParticipant(c);
+                                    if (!otherUser) return null;
+                                    return (
+                                        <div
+                                            key={c._id}
+                                            onClick={() => selectConversation(c)}
+                                            className={`px-4 py-3 cursor-pointer border-b border-gray-100 transition-colors ${selectedConversationId === c._id
+                                                    ? "bg-gray-100"
+                                                    : "hover:bg-gray-50"
+                                                }`}
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center text-gray-700 font-medium text-sm">
+                                                    {otherUser.email.charAt(0).toUpperCase()}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-sm font-medium text-gray-900 truncate">
+                                                        {otherUser.email}
+                                                    </p>
+                                                    <p className="text-xs text-gray-500 truncate">
+                                                        {c.lastMessage}
+                                                    </p>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                ))
+                                    );
+                                })
                             )}
                         </div>
                     </div>
 
                     {/* RIGHT CHAT WINDOW */}
                     <div className="flex-1 flex flex-col bg-gray-50">
-                        {!selectedUser ? (
+                        {!selectedConversation ? (
                             <div className="flex flex-col items-center justify-center h-full text-gray-400">
                                 <svg
                                     className="w-20 h-20 mb-4"
@@ -158,69 +186,75 @@ const Chat = () => {
                                 </p>
                             </div>
                         ) : (
-                            <>
-                                {/* Chat Header */}
-                                <div className="px-6 py-4 bg-white border-b border-gray-200">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center text-gray-700 font-medium">
-                                            {selectedUser.email.charAt(0).toUpperCase()}
-                                        </div>
-                                        <div>
-                                            <h3 className="font-semibold text-gray-900">
-                                                {selectedUser.email}
-                                            </h3>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Messages Area */}
-                                <div className="flex-1 overflow-y-auto p-6 space-y-4">
-                                    {messages.length === 0 ? (
-                                        <div className="flex items-center justify-center h-full text-sm text-gray-400">
-                                            No messages yet. Start the conversation!
-                                        </div>
-                                    ) : (
-                                        messages.map((m) => (
-                                            <div
-                                                key={m._id}
-                                                className={`flex ${m.sender.email === selectedUser.email
-                                                        ? "justify-start"
-                                                        : "justify-end"
-                                                    }`}
-                                            >
-                                                <div
-                                                    className={`max-w-sm px-4 py-2 rounded-2xl text-sm ${m.sender.email === selectedUser.email
-                                                            ? "bg-white border border-gray-200 text-gray-900"
-                                                            : "bg-gray-900 text-white"
-                                                        }`}
-                                                >
-                                                    {m.text}
+                            (() => {
+                                const otherUser = getOtherParticipant(selectedConversation);
+                                if (!otherUser) return null;
+                                return (
+                                    <>
+                                        {/* Chat Header */}
+                                        <div className="px-6 py-4 bg-white border-b border-gray-200">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center text-gray-700 font-medium">
+                                                    {otherUser.email.charAt(0).toUpperCase()}
+                                                </div>
+                                                <div>
+                                                    <h3 className="font-semibold text-gray-900">
+                                                        {otherUser.email}
+                                                    </h3>
                                                 </div>
                                             </div>
-                                        ))
-                                    )}
-                                </div>
+                                        </div>
 
-                                {/* Message Input */}
-                                <div className="px-6 py-4 bg-white border-t border-gray-200">
-                                    <div className="flex gap-3 items-end">
-                                        <input
-                                            value={text}
-                                            onChange={(e) => setText(e.target.value)}
-                                            onKeyPress={handleKeyPress}
-                                            placeholder="Type a message..."
-                                            className="flex-1 px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-300 focus:bg-white transition-all resize-none"
-                                        />
-                                        <button
-                                            onClick={handleSend}
-                                            disabled={!text.trim()}
-                                            className="px-5 py-2.5 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            Send
-                                        </button>
-                                    </div>
-                                </div>
-                            </>
+                                        {/* Messages Area */}
+                                        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                                            {messages.length === 0 ? (
+                                                <div className="flex items-center justify-center h-full text-sm text-gray-400">
+                                                    No messages yet. Start the conversation!
+                                                </div>
+                                            ) : (
+                                                messages.map((m) => (
+                                                    <div
+                                                        key={m._id}
+                                                        className={`flex ${m.sender._id === otherUser._id
+                                                                ? "justify-start"
+                                                                : "justify-end"
+                                                            }`}
+                                                    >
+                                                        <div
+                                                            className={`max-w-sm px-4 py-2 rounded-2xl text-sm ${m.sender._id === otherUser._id
+                                                                    ? "bg-white border border-gray-200 text-gray-900"
+                                                                    : "bg-gray-900 text-white"
+                                                                }`}
+                                                        >
+                                                            {m.text}
+                                                        </div>
+													</div>
+                                                ))
+                                            )}
+                                        </div>
+
+                                        {/* Message Input */}
+                                        <div className="px-6 py-4 bg-white border-t border-gray-200">
+                                            <div className="flex gap-3 items-end">
+                                                <input
+                                                    value={text}
+                                                    onChange={(e) => setText(e.target.value)}
+                                                    onKeyPress={handleKeyPress}
+                                                    placeholder="Type a message..."
+                                                    className="flex-1 px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-300 focus:bg-white transition-all resize-none"
+                                                />
+                                                <button
+                                                    onClick={handleSend}
+                                                    disabled={!text.trim()}
+                                                    className="px-5 py-2.5 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                >
+                                                    Send
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </>
+                                );
+                            })()
                         )}
                     </div>
                 </div>

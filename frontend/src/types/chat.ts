@@ -12,3 +12,10 @@ export interface ChatMessage {
     };
     createdAt: string;
 }
+
+export interface Conversation {
+    _id: string;
+    participants: ChatUser[];
+    lastMessage: string;
+    lastMessageAt: string;
+}

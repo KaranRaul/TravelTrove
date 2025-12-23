@@ -1,6 +1,21 @@
 const Conversation = require("../models/Conversation");
 const Message = require("../models/Message");
 
+// GET ALL CONVERSATIONS FOR A USER
+exports.getConversations = async (req, res, next) => {
+    try {
+        const conversations = await Conversation.find({
+            participants: req.user._id,
+        })
+            .populate("participants", "email")
+            .sort({ lastMessageAt: -1 });
+
+        res.status(200).json({ conversations });
+    } catch (error) {
+        next(error);
+    }
+};
+
 // 1️⃣ Create or get conversation
 exports.getOrCreateConversation = async (req, res, next) => {
     try {
@@ -43,6 +58,7 @@ exports.sendMessage = async (req, res, next) => {
 
         await Conversation.findByIdAndUpdate(conversationId, {
             lastMessage: text,
+            lastMessageAt: Date.now(),
         });
 
         res.status(201).json({ message: "Message sent" });

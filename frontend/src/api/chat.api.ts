@@ -1,5 +1,9 @@
 import api from "./axios";
 
+export const getConversations = () => {
+    return api.get("/chat/conversations");
+};
+
 export const getUsers = () => {
     return api.get("/users");
 };
