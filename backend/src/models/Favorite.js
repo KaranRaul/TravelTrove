@@ -12,9 +12,13 @@ const favoriteSchema = new mongoose.Schema(
             enum: ["destination-guide", "trip-itinerary"],
             required: true,
         },
-        itemId: {
+        destinationGuide: {
             type: mongoose.Schema.Types.ObjectId,
-            required: true,
+            ref: "DestinationGuide",
+        },
+        tripItinerary: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "TripItinerary",
         },
     },
     { timestamps: true }

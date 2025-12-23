@@ -9,25 +9,25 @@ exports.addFavorite = async (req, res, next) => {
             return res.status(400).json({ error: "Invalid request body" });
         }
 
-        const alreadyExists = await Favorite.findOne({
+        const payload = {
             user: req.user._id,
             type,
-            itemId: id,
-        });
+        };
 
-        if (alreadyExists) {
+        if (type === "destination-guide") {
+            payload.destinationGuide = id;
+        } else if (type === "trip-itinerary") {
+            payload.tripItinerary = id;
+        }
+
+        const existing = await Favorite.findOne(payload);
+        if (existing) {
             return res.status(400).json({ error: "Already added to favorites" });
         }
 
-        await Favorite.create({
-            user: req.user._id,
-            type,
-            itemId: id,
-        });
+        await Favorite.create(payload);
 
-        res.status(200).json({
-            message: "Destination guide added to favorites",
-        });
+        res.status(201).json({ message: "Added to favorites" });
     } catch (error) {
         next(error);
     }
@@ -36,14 +36,11 @@ exports.addFavorite = async (req, res, next) => {
 // VIEW FAVORITES
 exports.getFavorites = async (req, res, next) => {
     try {
-        const favorites = await Favorite.find({ user: req.user._id });
+        const favorites = await Favorite.find({ user: req.user._id })
+            .populate("destinationGuide", "title")
+            .populate("tripItinerary", "destination");
 
-        res.status(200).json({
-            favorites: favorites.map((fav) => ({
-                id: fav.itemId,
-                type: fav.type,
-            })),
-        });
+        res.status(200).json({ favorites });
     } catch (error) {
         next(error);
     }
