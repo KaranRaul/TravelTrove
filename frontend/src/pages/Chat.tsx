@@ -1,11 +1,13 @@
 import { useEffect, useState, useContext } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import Layout from "../components/common/Layout";
 import {
     getConversations,
     getMessages,
     sendMessage,
+    getOrCreateConversation,
 } from "../api/chat.api";
+import { getAllUsers } from "../api/user.api";
 import { ChatUser, ChatMessage, Conversation } from "../types/chat";
 import { AuthContext } from "../context/AuthContext";
 import { jwtDecode } from "jwt-decode";
@@ -19,15 +21,24 @@ interface DecodedToken {
 
 const Chat = () => {
     const { token } = useContext(AuthContext);
+    const navigate = useNavigate();
     const currentUser: DecodedToken | null = token ? jwtDecode(token) : null;
     const location = useLocation();
     const [conversations, setConversations] = useState<Conversation[]>([]);
+    const [allUsers, setAllUsers] = useState<ChatUser[]>([]);
     const [search, setSearch] = useState("");
     const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [text, setText] = useState("");
 
     const selectedConversation = conversations.find(c => c._id === selectedConversationId) || null;
+
+    const fetchConversations = () => {
+        return getConversations().then((res) => {
+            setConversations(res.data.conversations);
+            return res.data.conversations;
+        });
+    };
 
     // Handle initial state from navigation
     useEffect(() => {
@@ -36,15 +47,12 @@ const Chat = () => {
         }
     }, [location.state]);
 
-    // Load conversations
+    // Load conversations and all users
     useEffect(() => {
-        getConversations().then((res) => {
-            setConversations(res.data.conversations);
-            if (location.state?.conversationId) {
-                setSelectedConversationId(location.state.conversationId);
-            }
-        });
-    }, [location.state]);
+        fetchConversations();
+        getAllUsers().then((res) => setAllUsers(res.data.users));
+    }, []);
+
 
     // Poll messages
     useEffect(() => {
@@ -64,6 +72,29 @@ const Chat = () => {
         setSelectedConversationId(c._id);
     };
 
+    const handleSelectUser = async (user: ChatUser) => {
+        try {
+            const res = await getOrCreateConversation(user._id);
+            const convId = res.data.conversationId;
+
+            const updatedConversations = await fetchConversations();
+            const conversationExists = updatedConversations.some((c: Conversation) => c._id === convId);
+
+            if (conversationExists) {
+                setSelectedConversationId(convId);
+            } else {
+                // If it's a new conversation, it might not appear immediately.
+                // We can add it manually or just rely on the next fetch.
+                // For now, just selecting it.
+                setSelectedConversationId(convId);
+            }
+
+            navigate('/chat', { replace: true, state: {} }); // Clear location state
+        } catch (error) {
+            console.error("Error creating or getting conversation:", error);
+        }
+    };
+
     const handleSend = async () => {
         if (!text.trim() || !selectedConversationId) return;
         await sendMessage(selectedConversationId, text);
@@ -72,7 +103,7 @@ const Chat = () => {
         setMessages(res.data.messages);
 
         // Refresh conversations to get the latest message on top
-        getConversations().then((res) => setConversations(res.data.conversations));
+        fetchConversations();
     };
 
     const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -91,6 +122,10 @@ const Chat = () => {
         return otherUser?.email.toLowerCase().includes(search.toLowerCase());
     });
 
+    const filteredUsers = allUsers.filter(u =>
+        u.email.toLowerCase().includes(search.toLowerCase())
+    );
+
     return (
         <Layout>
             <div className="max-w-7xl mx-auto px-4 py-6">
@@ -99,12 +134,9 @@ const Chat = () => {
                     <div className="w-80 border-r border-gray-200 flex flex-col">
                         {/* Search Header */}
                         <div className="p-4 border-b border-gray-200">
-                            <h2 className="text-lg font-semibold text-gray-900 mb-3">
-                                Messages
-                            </h2>
                             <div className="relative">
                                 <input
-                                    placeholder="Search conversations..."
+                                    placeholder="Search users or messages..."
                                     value={search}
                                     onChange={(e) => setSearch(e.target.value)}
                                     className="w-full px-4 py-2 pl-10 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-300 focus:bg-white transition-all"
@@ -125,42 +157,82 @@ const Chat = () => {
                             </div>
                         </div>
 
-                        {/* Conversation List */}
+                        {/* User & Conversation List */}
                         <div className="flex-1 overflow-y-auto">
-                            {filteredConversations.length === 0 ? (
-                                <div className="flex items-center justify-center h-32 text-sm text-gray-500">
-                                    No conversations found
-                                </div>
-                            ) : (
-                                filteredConversations.map((c) => {
-                                    const otherUser = getOtherParticipant(c);
-                                    if (!otherUser) return null;
-                                    return (
-                                        <div
-                                            key={c._id}
-                                            onClick={() => selectConversation(c)}
-                                            className={`px-4 py-3 cursor-pointer border-b border-gray-100 transition-colors ${selectedConversationId === c._id
-                                                    ? "bg-gray-100"
-                                                    : "hover:bg-gray-50"
-                                                }`}
-                                        >
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center text-gray-700 font-medium text-sm">
-                                                    {otherUser.email.charAt(0).toUpperCase()}
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <p className="text-sm font-medium text-gray-900 truncate">
-                                                        {otherUser.email}
-                                                    </p>
-                                                    <p className="text-xs text-gray-500 truncate">
-                                                        {c.lastMessage}
+                            {/* All Users */}
+                            <div className="p-4">
+                                <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                                    All Users
+                                </h2>
+                                <div className="space-y-1">
+                                    {filteredUsers.length > 0 ? (
+                                        filteredUsers.map((user) => (
+                                            <div
+                                                key={user._id}
+                                                onClick={() => handleSelectUser(user)}
+                                                className="px-2 py-2 cursor-pointer rounded-lg hover:bg-gray-100 transition-colors"
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 font-medium text-xs">
+                                                        {user.email.charAt(0).toUpperCase()}
+                                                    </div>
+                                                    <p className="text-sm font-medium text-gray-800 truncate">
+                                                        {user.email}
                                                     </p>
                                                 </div>
                                             </div>
-                                        </div>
-                                    );
-                                })
-                            )}
+                                        ))
+                                    ) : (
+                                        <p className="text-xs text-gray-400 px-2">No users found.</p>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Separator */}
+                            <div className="px-4 py-2">
+                                <div className="border-t border-gray-200"></div>
+                            </div>
+
+                            {/* Conversations */}
+                            <div className="p-4">
+                                <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                                    Messages
+                                </h2>
+                                {filteredConversations.length === 0 ? (
+                                    <div className="flex items-center justify-center py-4 text-sm text-gray-500">
+                                        No conversations found
+                                    </div>
+                                ) : (
+                                    filteredConversations.map((c) => {
+                                        const otherUser = getOtherParticipant(c);
+                                        if (!otherUser) return null;
+                                        return (
+                                            <div
+                                                key={c._id}
+                                                onClick={() => selectConversation(c)}
+                                                className={`px-2 py-2 cursor-pointer rounded-lg transition-colors ${selectedConversationId === c._id
+                                                        ? "bg-gray-100"
+                                                        : "hover:bg-gray-50"
+                                                    }`}
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center text-gray-700 font-medium text-xs">
+                                                        {otherUser.email.charAt(0).toUpperCase()}
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-sm font-medium text-gray-900 truncate">
+                                                            {otherUser.email}
+                                                        </p>
+                                                        <p className="text-xs text-gray-500 truncate">
+                                                            {c.lastMessage}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })
+                                )}
+                            </div>
                         </div>
                     </div>
 

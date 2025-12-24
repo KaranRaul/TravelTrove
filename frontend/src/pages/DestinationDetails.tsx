@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useContext } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Layout from "../components/common/Layout";
 import { getDestinationById } from "../api/destination.api";
@@ -7,10 +7,12 @@ import { addFavorite } from "../api/favorite.api";
 import { getReviews, addReview } from "../api/review.api";
 import { Review } from "../types/review";
 import { getOrCreateConversation } from "../api/chat.api";
+import { AuthContext } from "../context/AuthContext"; // Import AuthContext
 
 const DestinationDetails = () => {
     const { id } = useParams();
     const navigate = useNavigate();
+    const { userId } = useContext(AuthContext); // Get userId from AuthContext
     const [data, setData] = useState<DestinationGuide | null>(null);
     const [loading, setLoading] = useState(true);
     const [favoriteLoading, setFavoriteLoading] = useState(false);
@@ -283,33 +285,36 @@ const DestinationDetails = () => {
                                         <div className="flex items-start justify-between gap-4 mb-3">
                                             <div className="flex items-center gap-3">
                                                 <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-700 font-medium">
-                                                    {review.user.email.charAt(0).toUpperCase()}
+                                                    {review.user ? review.user.email.charAt(0).toUpperCase() : 'U'}
                                                 </div>
                                                 <div>
                                                     <p className="font-medium text-gray-900">
-                                                        {review.user.email}
+                                                        {review.user ? review.user.email : 'Unknown User'}
                                                     </p>
                                                     {renderStars(review.rating)}
                                                 </div>
                                             </div>
-                                            <button
-                                                onClick={() => handleChatWithReviewer(review.user)}
-                                                className="text-gray-500 hover:text-gray-800"
-                                            >
-                                                <svg
-                                                    className="w-6 h-6"
-                                                    fill="none"
-                                                    stroke="currentColor"
-                                                    viewBox="0 0 24 24"
+                                            {/* Conditionally render chat button */}
+                                            {review.user && review.user._id !== userId && (
+                                                <button
+                                                    onClick={() => handleChatWithReviewer(review.user)}
+                                                    className="text-gray-500 hover:text-gray-800"
                                                 >
-                                                    <path
-                                                        strokeLinecap="round"
-                                                        strokeLinejoin="round"
-                                                        strokeWidth={2}
-                                                        d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-                                                    />
-                                                </svg>
-                                            </button>
+                                                    <svg
+                                                        className="w-6 h-6"
+                                                        fill="none"
+                                                        stroke="currentColor"
+                                                        viewBox="0 0 24 24"
+                                                    >
+                                                        <path
+                                                            strokeLinecap="round"
+                                                            strokeLinejoin="round"
+                                                            strokeWidth={2}
+                                                            d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                                                        />
+                                                    </svg>
+                                                </button>
+                                            )}
                                         </div>
                                         <p className="text-gray-700 leading-relaxed ml-13">
                                             {review.comment}

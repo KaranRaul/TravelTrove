@@ -4,5 +4,6 @@ export interface Review {
     comment: string;
     user: {
         email: string;
+        _id: string;
     };
 }

@@ -19,7 +19,7 @@ const Login = () => {
         try {
             const res = await loginUser(email, password);
             login(res.data.token);
-            navigate("/chat");
+            navigate("/");
         } catch (err: any) {
             setError(err.response?.data?.error || "Login failed");
         } finally {
