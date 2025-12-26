@@ -208,13 +208,20 @@ export const Destinations = () => {
                                         </p>
 
                                         <div className="flex items-center justify-between text-xs text-gray-500">
-                                            {/* <span className="inline-flex items-center gap-2">
-                                                <span className="w-1.5 h-1.5 rounded-full bg-gray-300" />
-                                                Updated{" "}
-                                                {d.updatedAt
-                                                    ? new Date(d.updatedAt).toLocaleDateString()
-                                                    : "recently"}
-                                            </span> */}
+                                            {/* Share Button */}
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    const url = `${window.location.origin}/destinations/${d._id}`;
+                                                    navigator.clipboard.writeText(url);
+                                                    alert("Copied to clipboard!");
+                                                }}
+                                                className="p-2 rounded-full hover:bg-gray-200"
+                                            >
+                                                <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12s-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6.002l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.368a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z"></path>
+                                                </svg>
+                                            </button>
 
                                             <div
                                                 className={`flex items-center gap-1 font-semibold ${isAdmin ? "text-gray-700" : "text-blue-600"

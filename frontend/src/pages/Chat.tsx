@@ -13,6 +13,7 @@ import { ChatUser, ChatMessage, Conversation } from "../types/chat";
 import { IGroup } from "../types/group";
 import { AuthContext } from "../context/AuthContext";
 import { jwtDecode } from "jwt-decode";
+import { linkifyText } from "../utils/linkify-text";
 
 interface DecodedToken {
     id: string;
@@ -364,8 +365,8 @@ const Chat = () => {
                                                                     ? "bg-white border border-gray-200 text-gray-900"
                                                                     : "bg-gray-900 text-white"
                                                                 }`}
+                                                            dangerouslySetInnerHTML={{ __html: linkifyText(m.text) }}
                                                         >
-                                                            {m.text}
                                                         </div>
 													</div>
                                                 ))
