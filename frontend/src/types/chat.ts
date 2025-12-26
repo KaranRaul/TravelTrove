@@ -18,4 +18,5 @@ export interface Conversation {
     participants: ChatUser[];
     lastMessage: string;
     lastMessageAt: string;
+    type?: "group" | "direct";
 }

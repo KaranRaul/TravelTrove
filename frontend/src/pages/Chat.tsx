@@ -8,7 +8,9 @@ import {
     getOrCreateConversation,
 } from "../api/chat.api";
 import { getAllUsers } from "../api/user.api";
+import { getMyGroups } from "../api/group.api";
 import { ChatUser, ChatMessage, Conversation } from "../types/chat";
+import { IGroup } from "../types/group";
 import { AuthContext } from "../context/AuthContext";
 import { jwtDecode } from "jwt-decode";
 
@@ -26,10 +28,12 @@ const Chat = () => {
     const location = useLocation();
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [allUsers, setAllUsers] = useState<ChatUser[]>([]);
+    const [myGroups, setMyGroups] = useState<IGroup[]>([]);
     const [search, setSearch] = useState("");
     const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [text, setText] = useState("");
+    const [activeTab, setActiveTab] = useState("direct");
 
     const selectedConversation = conversations.find(c => c._id === selectedConversationId) || null;
 
@@ -39,6 +43,12 @@ const Chat = () => {
             return res.data.conversations;
         });
     };
+
+    const fetchMyGroups = () => {
+        return getMyGroups().then((res) => {
+            setMyGroups(res);
+        });
+    }
 
     // Handle initial state from navigation
     useEffect(() => {
@@ -51,6 +61,7 @@ const Chat = () => {
     useEffect(() => {
         fetchConversations();
         getAllUsers().then((res) => setAllUsers(res.data.users));
+        fetchMyGroups();
     }, []);
 
 
@@ -95,6 +106,10 @@ const Chat = () => {
         }
     };
 
+    const handleSelectGroup = (groupId: string) => {
+        navigate(`/groups/${groupId}`);
+    };
+
     const handleSend = async () => {
         if (!text.trim() || !selectedConversationId) return;
         await sendMessage(selectedConversationId, text);
@@ -118,12 +133,17 @@ const Chat = () => {
     };
 
     const filteredConversations = conversations.filter((c) => {
+        if (c.type === 'group') return false;
         const otherUser = getOtherParticipant(c);
         return otherUser?.email.toLowerCase().includes(search.toLowerCase());
     });
 
     const filteredUsers = allUsers.filter(u =>
         u.email.toLowerCase().includes(search.toLowerCase())
+    );
+
+    const filteredGroups = myGroups.filter(g =>
+        g.name.toLowerCase().includes(search.toLowerCase())
     );
 
     return (
@@ -134,9 +154,23 @@ const Chat = () => {
                     <div className="w-80 border-r border-gray-200 flex flex-col">
                         {/* Search Header */}
                         <div className="p-4 border-b border-gray-200">
+                            <div className="flex border-b mb-4">
+                                <button
+                                    className={`px-4 py-2 text-sm font-medium ${activeTab === 'direct' ? 'border-b-2 border-gray-900 text-gray-900' : 'text-gray-500'}`}
+                                    onClick={() => setActiveTab('direct')}
+                                >
+                                    Direct Messages
+                                </button>
+                                <button
+                                    className={`px-4 py-2 text-sm font-medium ${activeTab === 'groups' ? 'border-b-2 border-gray-900 text-gray-900' : 'text-gray-500'}`}
+                                    onClick={() => setActiveTab('groups')}
+                                >
+                                    Groups
+                                </button>
+                            </div>
                             <div className="relative">
                                 <input
-                                    placeholder="Search users or messages..."
+                                    placeholder="Search..."
                                     value={search}
                                     onChange={(e) => setSearch(e.target.value)}
                                     className="w-full px-4 py-2 pl-10 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-300 focus:bg-white transition-all"
@@ -159,86 +193,118 @@ const Chat = () => {
 
                         {/* User & Conversation List */}
                         <div className="flex-1 overflow-y-auto">
-                            {/* All Users */}
-                            <div className="p-4">
-                                <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                                    All Users
-                                </h2>
-                                <div className="space-y-1">
-                                    {filteredUsers.length > 0 ? (
-                                        filteredUsers.map((user) => (
+                            {activeTab === 'direct' && (
+                                <>
+                                    {/* All Users */}
+                                    <div className="p-4">
+                                        <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                                            All Users
+                                        </h2>
+                                        <div className="space-y-1">
+                                            {filteredUsers.length > 0 ? (
+                                                filteredUsers.map((user) => (
+                                                    <div
+                                                        key={user._id}
+                                                        onClick={() => handleSelectUser(user)}
+                                                        className="px-2 py-2 cursor-pointer rounded-lg hover:bg-gray-100 transition-colors"
+                                                    >
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 font-medium text-xs">
+                                                                {user.email.charAt(0).toUpperCase()}
+                                                            </div>
+                                                            <p className="text-sm font-medium text-gray-800 truncate">
+                                                                {user.email}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <p className="text-xs text-gray-400 px-2">No users found.</p>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Separator */}
+                                    <div className="px-4 py-2">
+                                        <div className="border-t border-gray-200"></div>
+                                    </div>
+
+                                    {/* Conversations */}
+                                    <div className="p-4">
+                                        <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                                            Messages
+                                        </h2>
+                                        {filteredConversations.length === 0 ? (
+                                            <div className="flex items-center justify-center py-4 text-sm text-gray-500">
+                                                No conversations found
+                                            </div>
+                                        ) : (
+                                            filteredConversations.map((c) => {
+                                                const otherUser = getOtherParticipant(c);
+                                                if (!otherUser) return null;
+                                                return (
+                                                    <div
+                                                        key={c._id}
+                                                        onClick={() => selectConversation(c)}
+                                                        className={`px-2 py-2 cursor-pointer rounded-lg transition-colors ${selectedConversationId === c._id
+                                                                ? "bg-gray-100"
+                                                                : "hover:bg-gray-50"
+                                                            }`}
+                                                    >
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center text-gray-700 font-medium text-xs">
+                                                                {otherUser.email.charAt(0).toUpperCase()}
+                                                            </div>
+                                                            <div className="flex-1 min-w-0">
+                                                                <p className="text-sm font-medium text-gray-900 truncate">
+                                                                    {otherUser.email}
+                                                                </p>
+                                                                <p className="text-xs text-gray-500 truncate">
+                                                                    {c.lastMessage}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })
+                                        )}
+                                    </div>
+                                </>
+                            )}
+                            {activeTab === 'groups' && (
+                                <div className="p-4">
+                                    {filteredGroups.length === 0 ? (
+                                        <div className="flex items-center justify-center py-4 text-sm text-gray-500">
+                                            No groups found
+                                        </div>
+                                    ) : (
+                                        filteredGroups.map((g) => (
                                             <div
-                                                key={user._id}
-                                                onClick={() => handleSelectUser(user)}
+                                                key={g._id}
+                                                onClick={() => handleSelectGroup(g._id)}
                                                 className="px-2 py-2 cursor-pointer rounded-lg hover:bg-gray-100 transition-colors"
                                             >
                                                 <div className="flex items-center gap-3">
                                                     <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 font-medium text-xs">
-                                                        {user.email.charAt(0).toUpperCase()}
-                                                    </div>
-                                                    <p className="text-sm font-medium text-gray-800 truncate">
-                                                        {user.email}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        ))
-                                    ) : (
-                                        <p className="text-xs text-gray-400 px-2">No users found.</p>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Separator */}
-                            <div className="px-4 py-2">
-                                <div className="border-t border-gray-200"></div>
-                            </div>
-
-                            {/* Conversations */}
-                            <div className="p-4">
-                                <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                                    Messages
-                                </h2>
-                                {filteredConversations.length === 0 ? (
-                                    <div className="flex items-center justify-center py-4 text-sm text-gray-500">
-                                        No conversations found
-                                    </div>
-                                ) : (
-                                    filteredConversations.map((c) => {
-                                        const otherUser = getOtherParticipant(c);
-                                        if (!otherUser) return null;
-                                        return (
-                                            <div
-                                                key={c._id}
-                                                onClick={() => selectConversation(c)}
-                                                className={`px-2 py-2 cursor-pointer rounded-lg transition-colors ${selectedConversationId === c._id
-                                                        ? "bg-gray-100"
-                                                        : "hover:bg-gray-50"
-                                                    }`}
-                                            >
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center text-gray-700 font-medium text-xs">
-                                                        {otherUser.email.charAt(0).toUpperCase()}
+                                                        {g.name.charAt(0).toUpperCase()}
                                                     </div>
                                                     <div className="flex-1 min-w-0">
                                                         <p className="text-sm font-medium text-gray-900 truncate">
-                                                            {otherUser.email}
-                                                        </p>
-                                                        <p className="text-xs text-gray-500 truncate">
-                                                            {c.lastMessage}
+                                                            {g.name}
                                                         </p>
                                                     </div>
                                                 </div>
                                             </div>
-                                        );
-                                    })
-                                )}
-                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            )}
                         </div>
                     </div>
 
                     {/* RIGHT CHAT WINDOW */}
                     <div className="flex-1 flex flex-col bg-gray-50">
-                        {!selectedConversation ? (
+                        {activeTab === 'direct' && !selectedConversation && (
                             <div className="flex flex-col items-center justify-center h-full text-gray-400">
                                 <svg
                                     className="w-20 h-20 mb-4"
@@ -257,7 +323,8 @@ const Chat = () => {
                                     Select a conversation to start messaging
                                 </p>
                             </div>
-                        ) : (
+                        )}
+                        {activeTab === 'direct' && selectedConversation && (
                             (() => {
                                 const otherUser = getOtherParticipant(selectedConversation);
                                 if (!otherUser) return null;
@@ -327,6 +394,26 @@ const Chat = () => {
                                     </>
                                 );
                             })()
+                        )}
+                        {activeTab === 'groups' && (
+                            <div className="flex flex-col items-center justify-center h-full text-gray-400">
+                                <svg
+                                    className="w-20 h-20 mb-4"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                >
+                                    <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={1.5}
+                                        d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.653-.25-1.274-.7-1.743M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.653.25-1.274.7-1.743m0-3.514A5 5 0 0112 5c2.478 0 4.545 1.802 4.903 4.143M12 5a5 5 0 00-4.903 4.143"
+                                    />
+                                </svg>
+                                <p className="text-sm font-medium">
+                                    Select a group to view the chat
+                                </p>
+                            </div>
                         )}
                     </div>
                 </div>

@@ -14,6 +14,9 @@ import EditItinerary from "./pages/EditItinerary";
 import EditDestination from "./pages/EditDestination";
 import Favorites from "./pages/Favorite";
 import Chat from "./pages/Chat";
+import Groups from "./pages/Groups/Groups";
+import CreateGroup from "./pages/Groups/CreateGroup";
+import GroupDetails from "./pages/Groups/GroupDetails";
 
 
 function App() {
@@ -71,6 +74,33 @@ function App() {
             element={
               <ProtectedRoute>
                 <Chat />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/groups"
+            element={
+              <ProtectedRoute>
+                <Groups />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/groups/create"
+            element={
+              <ProtectedRoute>
+                <CreateGroup />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/groups/:id"
+            element={
+              <ProtectedRoute>
+                <GroupDetails />
               </ProtectedRoute>
             }
           />

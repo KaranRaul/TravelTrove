@@ -1,5 +1,6 @@
 const Conversation = require("../models/Conversation");
 const Message = require("../models/Message");
+const Group = require("../models/Group");
 
 // GET ALL CONVERSATIONS FOR A USER
 exports.getConversations = async (req, res, next) => {
@@ -8,6 +9,13 @@ exports.getConversations = async (req, res, next) => {
             participants: req.user._id,
         })
             .populate("participants", "email")
+            .populate({
+                path: 'group',
+                populate: {
+                    path: 'members',
+                    select: 'name email'
+                }
+            })
             .sort({ lastMessageAt: -1 });
 
         res.status(200).json({ conversations });
@@ -27,6 +35,7 @@ exports.getOrCreateConversation = async (req, res, next) => {
 
         let conversation = await Conversation.findOne({
             participants: { $all: [req.user._id, userId] },
+            type: 'direct'
         });
 
         if (!conversation) {
@@ -50,6 +59,24 @@ exports.sendMessage = async (req, res, next) => {
             return res.status(400).json({ error: "Invalid request body" });
         }
 
+        const conversation = await Conversation.findById(conversationId);
+
+        if (!conversation) {
+            return res.status(404).json({ error: "Conversation not found" });
+        }
+
+        if (conversation.type === 'group') {
+            const group = await Group.findById(conversation.group);
+            if (!group.members.includes(req.user._id)) {
+                return res.status(403).json({ error: "You are not a member of this group" });
+            }
+        } else {
+            if (!conversation.participants.includes(req.user._id)) {
+                return res.status(403).json({ error: "You are not a participant in this conversation" });
+            }
+        }
+
+
         const message = await Message.create({
             conversation: conversationId,
             sender: req.user._id,
@@ -72,6 +99,23 @@ exports.getMessages = async (req, res, next) => {
     try {
         const { conversationId } = req.params;
 
+        const conversation = await Conversation.findById(conversationId);
+
+        if (!conversation) {
+            return res.status(404).json({ error: "Conversation not found" });
+        }
+
+        if (conversation.type === 'group') {
+            const group = await Group.findById(conversation.group);
+            if (!group.members.includes(req.user._id)) {
+                return res.status(403).json({ error: "You are not a member of this group" });
+            }
+        } else {
+            if (!conversation.participants.includes(req.user._id)) {
+                return res.status(403).json({ error: "You are not a participant in this conversation" });
+            }
+        }
+
         const messages = await Message.find({ conversation: conversationId })
             .populate("sender", "email")
             .sort({ createdAt: 1 });
@@ -81,3 +125,4 @@ exports.getMessages = async (req, res, next) => {
         next(error);
     }
 };
+
