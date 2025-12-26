@@ -9,6 +9,7 @@ export interface ChatMessage {
     sender: {
         _id: string;
         email: string;
+        username?: string;
     };
     createdAt: string;
 }

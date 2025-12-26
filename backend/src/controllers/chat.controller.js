@@ -8,12 +8,12 @@ exports.getConversations = async (req, res, next) => {
         const conversations = await Conversation.find({
             participants: req.user._id,
         })
-            .populate("participants", "email")
+            .populate("participants", "username email")
             .populate({
                 path: 'group',
                 populate: {
                     path: 'members',
-                    select: 'name email'
+                    select: 'username email'
                 }
             })
             .sort({ lastMessageAt: -1 });
@@ -117,7 +117,7 @@ exports.getMessages = async (req, res, next) => {
         }
 
         const messages = await Message.find({ conversation: conversationId })
-            .populate("sender", "email")
+            .populate("sender", "username email")
             .sort({ createdAt: 1 });
 
         res.status(200).json({ messages });

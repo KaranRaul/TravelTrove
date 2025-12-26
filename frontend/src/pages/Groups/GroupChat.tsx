@@ -71,6 +71,7 @@ const GroupChat: React.FC<GroupChatProps> = ({ groupId }) => {
                             className={`p-2 rounded-lg ${message.sender._id === userId ? 'bg-blue-500 text-white' : 'bg-gray-300'
                                 }`}
                         >
+                            <p className="text-xs font-bold">{message.sender.username || message.sender.email}</p>
                             <p className="text-sm">{message.text}</p>
                             <p className="text-xs text-right mt-1">{new Date(message.createdAt).toLocaleTimeString()}</p>
                         </div>

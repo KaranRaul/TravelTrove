@@ -6,7 +6,7 @@ const generateToken = require("../utils/generateToken");
 // REGISTER (hash password here)
 exports.register = async (req, res, next) => {
     try {
-        const { email, password } = req.body;
+        const { username, email, password } = req.body;
 
         if (!email || !password) {
             return res.status(400).json({ error: "Invalid request body" });
@@ -16,12 +16,20 @@ exports.register = async (req, res, next) => {
         if (existingUser) {
             return res.status(400).json({ error: "User already exists" });
         }
+        if (username) {
+            const existingUsername = await User.findOne({ username });
+            if (existingUsername) {
+                return res.status(400).json({ error: "Username is already taken" });
+            }
+        }
+
 
         // 🔐 HASH PASSWORD HERE
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
 
         await User.create({
+            username,
             email,
             password: hashedPassword,
         });

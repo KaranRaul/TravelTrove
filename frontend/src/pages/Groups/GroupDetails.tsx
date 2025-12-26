@@ -146,7 +146,7 @@ const GroupDetails: React.FC = () => {
                         <ul>
                             {group.members.map((member: IUser) => (
                                 <li key={member._id} className="flex items-center mb-2">
-                                    <span className="text-gray-800">{member.email}</span>
+                                    <span className="text-gray-800">{member.username || member.email}</span>
                                     {member._id === group.owner._id && <span className="ml-2 text-sm text-gray-500">(Owner)</span>}
                                 </li>
                             ))}

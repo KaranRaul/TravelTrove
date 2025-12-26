@@ -34,8 +34,8 @@ const createGroup = async (req, res) => {
 const getMyGroups = async (req, res) => {
     try {
         const groups = await Group.find({ members: req.user._id })
-            .populate('owner', 'name email')
-            .populate('members', 'name email');
+            .populate('owner', 'username email')
+            .populate('members', 'username email');
         res.json(groups);
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -45,8 +45,8 @@ const getMyGroups = async (req, res) => {
 const getPublicGroups = async (req, res) => {
     try {
         const groups = await Group.find({ isPublic: true })
-            .populate('owner', 'name email')
-            .populate('members', 'name email');
+            .populate('owner', 'username email')
+            .populate('members', 'username email');
         res.json(groups);
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -56,8 +56,8 @@ const getPublicGroups = async (req, res) => {
 const getGroupById = async (req, res) => {
     try {
         const group = await Group.findById(req.params.id)
-            .populate('owner', 'name email')
-            .populate('members', 'name email');
+            .populate('owner', 'username email')
+            .populate('members', 'username email');
         if (!group) {
             return res.status(404).json({ message: 'Group not found' });
         }
@@ -114,7 +114,7 @@ const inviteUser = async (req, res) => {
 const getGroupMembers = async (req, res) => {
     try {
         const group = await Group.findById(req.params.id)
-            .populate('members', 'name email');
+            .populate('members', 'username email');
         if (!group) {
             return res.status(404).json({ message: 'Group not found' });
         }
