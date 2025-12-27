@@ -1,6 +1,6 @@
 import linkifyit from 'linkify-it';
 
-const linkify = linkifyit();
+const linkify = new linkifyit();
 
 export const linkifyText = (text: string) => {
     if (!text || !linkify.pretest(text)) {

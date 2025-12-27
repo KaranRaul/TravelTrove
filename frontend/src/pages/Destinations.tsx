@@ -75,7 +75,7 @@ export const Destinations = () => {
                             {/* Admin toolbar */}
                             {isAdmin && (
                                 <div className="flex items-center justify-center md:justify-end gap-3">
-                                    <button
+                                    {/* <button
                                         onClick={() => setManageMode((m) => !m)}
                                         className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${manageMode
                                             ? "bg-gray-900 text-white border-gray-900"
@@ -83,7 +83,7 @@ export const Destinations = () => {
                                             }`}
                                     >
                                         {manageMode ? "Exit manage view" : "Manage view"}
-                                    </button>
+                                    </button> */}
                                     <Link to="/destinations/create">
                                         <button className="inline-flex items-center gap-2 bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-800 transition-colors shadow-sm">
                                             <svg

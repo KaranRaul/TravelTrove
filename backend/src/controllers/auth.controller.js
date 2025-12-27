@@ -23,19 +23,29 @@ exports.register = async (req, res, next) => {
             }
         }
 
+        let role = "user";
+        if (req.route.path === "/register-admin") {
+            role = "admin";
+        }
+
 
         // 🔐 HASH PASSWORD HERE
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
 
-        await User.create({
+        const newUser = await User.create({
             username,
             email,
             password: hashedPassword,
+            role,
         });
+
+        const token = generateToken(newUser._id, newUser.role);
+
 
         res.status(201).json({
             message: "User created successfully",
+            token,
         });
     } catch (error) {
         next(error);

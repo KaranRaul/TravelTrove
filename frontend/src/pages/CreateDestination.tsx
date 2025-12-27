@@ -40,7 +40,7 @@ const CreateDestination = () => {
                 },
             };
             await createDestination(destinationData);
-            navigate("/destinations");
+            navigate("/");
         } catch (err: any) {
             setError(err.response?.data?.error || "Failed to create destination");
             setLoading(false);
@@ -63,7 +63,7 @@ const CreateDestination = () => {
                         </div>
                         <button
                             type="button"
-                            onClick={() => navigate("/destinations")}
+                            onClick={() => navigate("/")}
                             className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900"
                         >
                             <svg
